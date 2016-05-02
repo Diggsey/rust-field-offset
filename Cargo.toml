@@ -1,0 +1,7 @@
+[package]
+name = "field-offset"
+version = "0.1.0"
+authors = ["Diggory Blake <diggsey@googlemail.com>"]
+description = "Safe pointer-to-member implementation"
+
+[dependencies]
