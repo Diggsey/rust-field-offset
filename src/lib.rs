@@ -21,16 +21,21 @@ impl<T, U> FieldOffset<T, U> {
     pub unsafe fn new<F: for<'a> FnOnce(&'a T) -> &'a U>(f: F) -> Self {
         // Construct a "fake" T. It's not valid, but the lambda shouldn't
         // actually access it (which is why this is unsafe)
-        let ref x = mem::zeroed();
-        // Pass a reference to the zeroed T to the lambda
-        // The lambda gives us back a reference to (what we hope is)
-        // a field of T, of type U
-        let y = f(x);
-        // Compute the offset of the field via the difference between the
-        // references `x` and `y`. Overflow is an error: in debug builds it
-        // will be caught here, in release it will wrap around and be caught
-        // on the next line.
-        let offset = (y as *const U as usize) - (x as *const T as usize);
+        let x = mem::zeroed();
+        let offset = {
+            let x = &x;
+            // Pass a reference to the zeroed T to the lambda
+            // The lambda gives us back a reference to (what we hope is)
+            // a field of T, of type U
+            let y = f(x);
+            // Compute the offset of the field via the difference between the
+            // references `x` and `y`. Overflow is an error: in debug builds it
+            // will be caught here, in release it will wrap around and be caught
+            // on the next line.
+            (y as *const U as usize) - (x as *const T as usize)
+        };
+        // Don't run destructor on "fake" T
+        mem::forget(x);
         // Sanity check: ensure that the field offset plus the field size
         // is no greater than the size of the containing struct. This is
         // not sufficient to make the function *safe*, but it does catch
