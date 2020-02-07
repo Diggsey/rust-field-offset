@@ -1,6 +1,6 @@
 [package]
 name = "field-offset"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Diggory Blake <diggsey@googlemail.com>"]
 description = "Safe pointer-to-member implementation"
 repository = "https://github.com/Diggsey/rust-field-offset"
@@ -8,3 +8,6 @@ readme = "README.md"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+
+[build-dependencies]
+rustc_version = "0.2.3"
