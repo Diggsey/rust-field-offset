@@ -3,6 +3,7 @@ use std::mem;
 use std::ops::Add;
 use std::fmt;
 
+#[doc(hidden)]
 pub extern crate memoffset as __memoffset; // `pub` for macro availability
 
 /// Represents a pointer to a field of type `U` within the type `T`
