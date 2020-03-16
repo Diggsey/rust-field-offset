@@ -1,8 +1,9 @@
-
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::Add;
 use std::fmt;
+
+pub extern crate memoffset as __memoffset; // `pub` for macro availability
 
 /// Represents a pointer to a field of type `U` within the type `T`
 #[repr(transparent)]
@@ -173,16 +174,11 @@ impl<T, U> Clone for FieldOffset<T, U> {
 #[macro_export]
 macro_rules! offset_of {
     ($t: tt => $f: tt) => {{
-        // Make sure the field exists, and is not being accessed via Deref.
-        let $t { $f: _, .. };
-
         // Construct the offset
         #[allow(unused_unsafe)]
         unsafe {
             $crate::FieldOffset::<$t, _>::new(|x| {
-                // This is UB unless/until the compiler special-cases it to
-                // not enforce the validity constraint on `x`.
-                &(*x).$f as *const _
+                $crate::__memoffset::raw_field!(x, $t, $f)
             })
         }
     }};
