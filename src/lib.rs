@@ -147,13 +147,29 @@ impl<T, U> Clone for FieldOffset<T, U> {
 ///
 /// Examples:
 ///
-/// Offset of field `Foo().bar`
+/// Offset of field `Foo.bar`
 ///
-/// `offset_of!(Foo => bar)`
+/// ```rust
+/// # #[macro_use]
+/// # extern crate field_offset;
+/// # fn main() {
+/// #[repr(C)]
+/// struct Foo { foo: i32, bar: i32 }
+/// assert_eq!(offset_of!(Foo => bar).get_byte_offset(), 4);
+/// # }
+/// ```
 ///
-/// Offset of nested field `Foo().bar.x`
+/// Offset of nested field `Foo.bar.x`
 ///
-/// `offset_of!(Foo => bar: Bar => x)`
+/// ```rust
+/// # #[macro_use]
+/// # extern crate field_offset;
+/// # fn main() {
+/// struct Bar { a: u8, x: u8 }
+/// struct Foo { foo: i32, bar: Bar }
+/// assert_eq!(offset_of!(Foo => bar: Bar => x).get_byte_offset(), 5);
+/// # }
+/// ```
 #[macro_export]
 macro_rules! offset_of {
     ($t: tt => $f: tt) => {{
