@@ -3,10 +3,10 @@
 // which are too lax.
 #![allow(clippy::needless_lifetimes)]
 
+use std::fmt;
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::Add;
-use std::fmt;
 
 #[doc(hidden)]
 pub extern crate memoffset as __memoffset; // `pub` for macro availability
@@ -18,7 +18,7 @@ pub struct FieldOffset<T, U>(
     usize,
     /// A pointer-to-member can be thought of as a function from
     /// `&T` to `&U` with matching lifetimes
-    PhantomData<dyn for<'a> Fn(&'a T) -> &'a U>
+    PhantomData<dyn for<'a> Fn(&'a T) -> &'a U>,
 );
 
 impl<T, U> FieldOffset<T, U> {
@@ -41,10 +41,10 @@ impl<T, U> FieldOffset<T, U> {
     /// to the field in question.
     ///
     /// # Safety
-    /// 
+    ///
     /// The lambda *must not* dereference the provided pointer or access the
     /// inner value in any way as it may point to uninitialized memory.
-    /// 
+    ///
     /// For the returned `FieldOffset` to be safe to use, the returned pointer
     /// must be valid for *any* instance of `T`. For example, returning a pointer
     /// to a field from an enum with multiple variants will produce a `FieldOffset`
@@ -59,9 +59,9 @@ impl<T, U> FieldOffset<T, U> {
         Self::new_from_offset(offset)
     }
     /// Construct a field offset directly from a byte offset.
-    /// 
+    ///
     /// # Safety
-    /// 
+    ///
     /// For the returned `FieldOffset` to be safe to use, the field offset
     /// must be valid for *any* instance of `T`. For example, returning the offset
     /// to a field from an enum with multiple variants will produce a `FieldOffset`
@@ -110,11 +110,11 @@ impl<T, U> FieldOffset<T, U> {
     // Methods for unapplying the pointer to member
 
     /// Unapply the field offset to a native pointer.
-    /// 
+    ///
     /// # Safety
-    /// 
+    ///
     /// *Warning: very unsafe!*
-    /// 
+    ///
     /// This applies a negative offset to a pointer. If the safety
     /// implications of this are not already clear to you, then *do
     /// not* use this method. Also be aware that Rust has stronger
@@ -128,9 +128,9 @@ impl<T, U> FieldOffset<T, U> {
     /// Unapply the field offset to a native mutable pointer.
     ///
     /// # Safety
-    /// 
+    ///
     /// *Warning: very unsafe!*
-    /// 
+    ///
     /// This applies a negative offset to a pointer. If the safety
     /// implications of this are not already clear to you, then *do
     /// not* use this method. Also be aware that Rust has stronger
@@ -144,9 +144,9 @@ impl<T, U> FieldOffset<T, U> {
     /// Unapply the field offset to a reference.
     ///
     /// # Safety
-    /// 
+    ///
     /// *Warning: very unsafe!*
-    /// 
+    ///
     /// This applies a negative offset to a reference. If the safety
     /// implications of this are not already clear to you, then *do
     /// not* use this method. Also be aware that Rust has stronger
@@ -160,9 +160,9 @@ impl<T, U> FieldOffset<T, U> {
     /// Unapply the field offset to a mutable reference.
     ///
     /// # Safety
-    /// 
+    ///
     /// *Warning: very unsafe!*
-    /// 
+    ///
     /// This applies a negative offset to a reference. If the safety
     /// implications of this are not already clear to you, then *do
     /// not* use this method. Also be aware that Rust has stronger
@@ -197,9 +197,11 @@ impl<T, U> fmt::Debug for FieldOffset<T, U> {
     }
 }
 
-impl<T, U> Copy for FieldOffset<T, U> { }
+impl<T, U> Copy for FieldOffset<T, U> {}
 impl<T, U> Clone for FieldOffset<T, U> {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 
 /// This macro allows safe construction of a FieldOffset,
@@ -255,7 +257,7 @@ mod tests {
     struct Foo {
         a: u32,
         b: f64,
-        c: bool
+        c: bool,
     }
 
     #[derive(Debug)]
@@ -276,7 +278,7 @@ mod tests {
         let mut x = Foo {
             a: 1,
             b: 2.0,
-            c: false
+            c: false,
         };
 
         // Apply the pointer to get at `b` and read it
@@ -323,8 +325,8 @@ mod tests {
             y: Foo {
                 a: 1,
                 b: 2.0,
-                c: false
-            }
+                c: false,
+            },
         };
 
         // Combine the pointer-to-members
