@@ -236,7 +236,7 @@ impl<T, U> Clone for FieldOffset<T, U> {
 /// ```
 #[macro_export]
 macro_rules! offset_of {
-    ($t: tt => $f: tt) => {{
+    ($t: path => $f: tt) => {{
         // Construct the offset
         #[allow(unused_unsafe)]
         unsafe {
@@ -338,5 +338,14 @@ mod tests {
             *y = 42.0;
         }
         assert!(x.y.b == 42.0);
+    }
+
+    struct Parameterized<T, U> {
+        x: T,
+        _y: U,
+    }
+    #[test]
+    fn test_type_parameter() {
+        let _ = offset_of!(Parameterized<Parameterized<bool, bool>, bool> => x: Parameterized<bool, bool> => x);
     }
 }
