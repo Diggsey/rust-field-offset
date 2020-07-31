@@ -1,3 +1,5 @@
+#![cfg_attr(fieldoffset_assert_in_const_fn, feature(const_panic))]
+#![cfg_attr(fieldoffset_assert_in_const_fn, feature(const_fn))]
 // Explicit lifetimes are clearer when we are working with raw pointers,
 // as the compiler will not warn us if we specify lifetime constraints
 // which are too lax.
@@ -18,8 +20,37 @@ pub struct FieldOffset<T, U>(
     usize,
     /// A pointer-to-member can be thought of as a function from
     /// `&T` to `&U` with matching lifetimes
-    PhantomData<dyn for<'a> Fn(&'a T) -> &'a U>,
+    ///
+    /// ```compile_fail
+    /// use field_offset::FieldOffset;
+    /// struct Foo<'a>(&'a str);
+    /// fn test<'a>(foo: &Foo<'a>, of: FieldOffset<Foo<'static>, &'static str>) -> &'static str {
+    ///     let of2 : FieldOffset<Foo<'a>, &'static str> = of; // This must not compile
+    ///     of2.apply(foo)
+    /// }
+    /// ```
+    /// That should compile:
+    /// ```
+    /// use field_offset::FieldOffset;
+    /// struct Foo<'a>(&'a str, &'static str);
+    /// fn test<'a>(foo: &'a Foo<'static>, of: FieldOffset<Foo, &'static str>) -> &'a str {
+    ///     let of2 : FieldOffset<Foo<'static>, &'static str> = of;
+    ///     of.apply(foo)
+    /// }
+    /// fn test2(foo: &Foo<'static>, of: FieldOffset<Foo, &'static str>) -> &'static str {
+    ///     let of2 : FieldOffset<Foo<'static>, &'static str> = of;
+    ///     of.apply(foo)
+    /// }
+    /// fn test3<'a>(foo: &'a Foo, of: FieldOffset<Foo<'a>, &'a str>) -> &'a str {
+    ///     of.apply(foo)
+    /// }
+    /// ```
+    PhantomData<(PhantomContra<T>, U)>,
 );
+
+/// `fn` cannot appear dirrectly in a type that need to be const.
+/// Workaround that with an indiretion
+struct PhantomContra<T>(fn(T));
 
 impl<T, U> FieldOffset<T, U> {
     // Use MaybeUninit to get a fake T
@@ -67,13 +98,14 @@ impl<T, U> FieldOffset<T, U> {
     /// to a field from an enum with multiple variants will produce a `FieldOffset`
     /// which is unsafe to use.
     #[inline]
-    pub unsafe fn new_from_offset(offset: usize) -> Self {
+    pub const unsafe fn new_from_offset(offset: usize) -> Self {
         // Sanity check: ensure that the field offset plus the field size
         // is no greater than the size of the containing struct. This is
         // not sufficient to make the function *safe*, but it does catch
         // obvious errors like returning a reference to a boxed value,
         // which is owned by `T` and so has the correct lifetime, but is not
         // actually a field.
+        #[cfg(fieldoffset_assert_in_const_fn)]
         assert!(offset + mem::size_of::<U>() <= mem::size_of::<T>());
 
         FieldOffset(offset, PhantomData)
@@ -103,7 +135,7 @@ impl<T, U> FieldOffset<T, U> {
     }
     /// Get the raw byte offset for this field offset.
     #[inline]
-    pub fn get_byte_offset(self) -> usize {
+    pub const fn get_byte_offset(self) -> usize {
         self.0
     }
 
@@ -347,5 +379,26 @@ mod tests {
     #[test]
     fn test_type_parameter() {
         let _ = offset_of!(Parameterized<Parameterized<bool, bool>, bool> => x: Parameterized<bool, bool> => x);
+    }
+
+    #[test]
+    fn test_const() {
+        use crate::FieldOffset;
+        #[repr(C)]
+        struct SomeStruct {
+            a: u8,
+            b: u32,
+        }
+        const CONST_FIELD_OFFSET: FieldOffset<SomeStruct, u32> =
+            unsafe { FieldOffset::new_from_offset(4) };
+        const CONST_VALUE: usize = CONST_FIELD_OFFSET.get_byte_offset();
+        assert_eq!(offset_of!(SomeStruct => b).get_byte_offset(), CONST_VALUE);
+
+        static STATIC_FIELD_OFFSET: FieldOffset<SomeStruct, u32> =
+            unsafe { FieldOffset::new_from_offset(4) };
+        assert_eq!(
+            offset_of!(SomeStruct => b).get_byte_offset(),
+            STATIC_FIELD_OFFSET.get_byte_offset()
+        );
     }
 }
