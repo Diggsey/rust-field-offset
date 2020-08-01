@@ -107,6 +107,9 @@ impl<T, U> FieldOffset<T, U> {
         // actually a field.
         #[cfg(fieldoffset_assert_in_const_fn)]
         assert!(offset + mem::size_of::<U>() <= mem::size_of::<T>());
+        // On stable rust, we can still get an assert in debug mode,
+        // relying on the checked overflow behaviour
+        let _ = mem::size_of::<T>() - (offset + mem::size_of::<U>());
 
         FieldOffset(offset, PhantomData)
     }
