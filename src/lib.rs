@@ -9,13 +9,17 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::Add;
+use std::pin::Pin;
 
 #[doc(hidden)]
 pub extern crate memoffset as __memoffset; // `pub` for macro availability
 
 /// Represents a pointer to a field of type `U` within the type `T`
+///
+/// The `PinFlag` parameter can be set to `AllowPin` to enable the projection
+/// from Pin<&T> to Pin<&U>
 #[repr(transparent)]
-pub struct FieldOffset<T, U>(
+pub struct FieldOffset<T, U, PinFlag = NotPinned>(
     /// Offset in bytes of the field within the struct
     usize,
     /// A pointer-to-member can be thought of as a function from
@@ -45,14 +49,23 @@ pub struct FieldOffset<T, U>(
     ///     of.apply(foo)
     /// }
     /// ```
-    PhantomData<(PhantomContra<T>, U)>,
+    PhantomData<(PhantomContra<T>, U, PinFlag)>,
 );
 
 /// `fn` cannot appear dirrectly in a type that need to be const.
 /// Workaround that with an indiretion
 struct PhantomContra<T>(fn(T));
 
-impl<T, U> FieldOffset<T, U> {
+/// Type that can be used in the `PinFlag` parameter of `FieldOffset` to specify that
+/// This projection is valid on Pin types.
+/// See documentation of `FieldOffset::new_from_offset_pinned`
+pub enum AllowPin {}
+
+/// Type that can be used in the `PinFlag` parameter of `FieldOffset` to specify that
+/// This projection is not valid on Pin types.
+pub enum NotPinned {}
+
+impl<T, U> FieldOffset<T, U, NotPinned> {
     // Use MaybeUninit to get a fake T
     #[cfg(fieldoffset_maybe_uninit)]
     #[inline]
@@ -113,9 +126,10 @@ impl<T, U> FieldOffset<T, U> {
 
         FieldOffset(offset, PhantomData)
     }
+}
 
-    // Methods for applying the pointer to member
-
+// Methods for applying the pointer to member
+impl<T, U, PinFlag> FieldOffset<T, U, PinFlag> {
     /// Apply the field offset to a native pointer.
     #[inline]
     pub fn apply_ptr(self, x: *const T) -> *const U {
@@ -208,6 +222,57 @@ impl<T, U> FieldOffset<T, U> {
     pub unsafe fn unapply_mut<'a>(self, x: &'a mut U) -> &'a mut T {
         &mut *self.unapply_ptr_mut(x)
     }
+
+    /// Convert this offset to an offset that is allowed to go from `Pin<&T>`
+    /// to `Pin<&U>`
+    ///
+    /// # Safety
+    ///
+    /// The Pin safety rules for projection must be respected. These rules are
+    /// explained in the
+    /// [Pin documentation](https://doc.rust-lang.org/stable/std/pin/index.html#pinning-is-structural-for-field)
+    pub const unsafe fn as_pinned_projection(self) -> FieldOffset<T, U, AllowPin> {
+        FieldOffset::new_from_offset_pinned(self.get_byte_offset())
+    }
+
+    /// Remove the AllowPin flag
+    pub const fn as_unpinned_projection(self) -> FieldOffset<T, U, NotPinned> {
+        unsafe { FieldOffset::new_from_offset(self.get_byte_offset()) }
+    }
+}
+
+impl<T, U> FieldOffset<T, U, AllowPin> {
+    /// Construct a field offset directly from a byte offset, which can be projected from
+    /// a pinned.
+    ///
+    /// # Safety
+    ///
+    /// In addition to the safety rules of FieldOffset::new_from_offset, the projection
+    /// from `Pin<&T>` to `Pin<&U>` must also be allowed. The rules are explained in the
+    /// [Pin documentation](https://doc.rust-lang.org/stable/std/pin/index.html#pinning-is-structural-for-field)
+    #[inline]
+    pub const unsafe fn new_from_offset_pinned(offset: usize) -> Self {
+        FieldOffset(offset, PhantomData)
+    }
+
+    /// Apply the field offset to a pinned reference and return a pinned
+    /// reference to the field
+    #[inline]
+    pub fn apply_pin<'a>(self, x: Pin<&'a T>) -> Pin<&'a U> {
+        unsafe { x.map_unchecked(|x| self.apply(x)) }
+    }
+    /// Apply the field offset to a pinned mutable reference and return a
+    /// pinned mutable reference to the field
+    #[inline]
+    pub fn apply_pin_mut<'a>(self, x: Pin<&'a mut T>) -> Pin<&'a mut U> {
+        unsafe { x.map_unchecked_mut(|x| self.apply_mut(x)) }
+    }
+}
+
+impl<T, U> From<FieldOffset<T, U, AllowPin>> for FieldOffset<T, U, NotPinned> {
+    fn from(other: FieldOffset<T, U, AllowPin>) -> Self {
+        other.as_unpinned_projection()
+    }
 }
 
 /// Allow chaining pointer-to-members.
@@ -218,22 +283,42 @@ impl<T, U> FieldOffset<T, U> {
 /// The requirements on the generic type parameters ensure this is a safe operation.
 impl<T, U, V> Add<FieldOffset<U, V>> for FieldOffset<T, U> {
     type Output = FieldOffset<T, V>;
-
     #[inline]
     fn add(self, other: FieldOffset<U, V>) -> FieldOffset<T, V> {
         FieldOffset(self.0 + other.0, PhantomData)
     }
 }
+impl<T, U, V> Add<FieldOffset<U, V, AllowPin>> for FieldOffset<T, U, AllowPin> {
+    type Output = FieldOffset<T, V, AllowPin>;
+    #[inline]
+    fn add(self, other: FieldOffset<U, V, AllowPin>) -> FieldOffset<T, V, AllowPin> {
+        FieldOffset(self.0 + other.0, PhantomData)
+    }
+}
+impl<T, U, V> Add<FieldOffset<U, V>> for FieldOffset<T, U, AllowPin> {
+    type Output = FieldOffset<T, V>;
+    #[inline]
+    fn add(self, other: FieldOffset<U, V>) -> FieldOffset<T, V> {
+        FieldOffset(self.0 + other.0, PhantomData)
+    }
+}
+impl<T, U, V> Add<FieldOffset<U, V, AllowPin>> for FieldOffset<T, U> {
+    type Output = FieldOffset<T, V>;
+    #[inline]
+    fn add(self, other: FieldOffset<U, V, AllowPin>) -> FieldOffset<T, V> {
+        FieldOffset(self.0 + other.0, PhantomData)
+    }
+}
 
 /// The debug implementation prints the byte offset of the field in hexadecimal.
-impl<T, U> fmt::Debug for FieldOffset<T, U> {
+impl<T, U, Flag> fmt::Debug for FieldOffset<T, U, Flag> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "FieldOffset({:#x})", self.0)
     }
 }
 
-impl<T, U> Copy for FieldOffset<T, U> {}
-impl<T, U> Clone for FieldOffset<T, U> {
+impl<T, U, Flag> Copy for FieldOffset<T, U, Flag> {}
+impl<T, U, Flag> Clone for FieldOffset<T, U, Flag> {
     fn clone(&self) -> Self {
         *self
     }
@@ -403,5 +488,36 @@ mod tests {
             offset_of!(SomeStruct => b).get_byte_offset(),
             STATIC_FIELD_OFFSET.get_byte_offset()
         );
+    }
+
+    #[test]
+    fn test_pin() {
+        use std::pin::Pin;
+
+        // Get a pointer to `b` within `Foo`
+        let foo_b = offset_of!(Foo => b);
+        let foo_b_pin = unsafe { foo_b.as_pinned_projection() };
+        let foo = Box::pin(Foo {
+            a: 21,
+            b: 22.0,
+            c: true,
+        });
+        let pb: Pin<&f64> = foo_b_pin.apply_pin(foo.as_ref());
+        assert!(*pb == 22.0);
+
+        let mut x = Box::pin(Bar {
+            x: 0,
+            y: Foo {
+                a: 1,
+                b: 52.0,
+                c: false,
+            },
+        });
+        let bar_y_b = offset_of!(Bar => y: Foo => b);
+        assert!(*bar_y_b.apply(&*x) == 52.0);
+
+        let bar_y_pin = unsafe { offset_of!(Bar => y).as_pinned_projection() };
+        *(bar_y_pin + foo_b_pin).apply_pin_mut(x.as_mut()) = 12.;
+        assert!(x.y.b == 12.0);
     }
 }
