@@ -52,18 +52,18 @@ pub struct FieldOffset<T, U, PinFlag = NotPinned>(
     PhantomData<(PhantomContra<T>, U, PinFlag)>,
 );
 
+/// `fn` cannot appear dirrectly in a type that need to be const.
+/// Workaround that with an indiretion
+struct PhantomContra<T>(fn(T));
+
 /// Type that can be used in the `PinFlag` parameter of `FieldOffset` to specify that
 /// This projection is valid on Pin types.
 /// See documentation of `FieldOffset::new_from_offset_pinned`
 pub enum AllowPin {}
 
 /// Type that can be used in the `PinFlag` parameter of `FieldOffset` to specify that
-/// This projection is valid on Pin types.
-pub type NotPinned = ();
-
-/// `fn` cannot appear dirrectly in a type that need to be const.
-/// Workaround that with an indiretion
-struct PhantomContra<T>(fn(T));
+/// This projection is not valid on Pin types.
+pub enum NotPinned {}
 
 impl<T, U> FieldOffset<T, U, NotPinned> {
     // Use MaybeUninit to get a fake T
@@ -255,12 +255,14 @@ impl<T, U> FieldOffset<T, U, AllowPin> {
         FieldOffset(offset, PhantomData)
     }
 
-    /// Apply the field offset to a reference.
+    /// Apply the field offset to a pinned reference and return a pinned
+    /// reference to the field
     #[inline]
     pub fn apply_pin<'a>(self, x: Pin<&'a T>) -> Pin<&'a U> {
         unsafe { x.map_unchecked(|x| self.apply(x)) }
     }
-    /// Apply the field offset to a mutable reference.
+    /// Apply the field offset to a pinned mutable reference and return a
+    /// pinned mutable reference to the field
     #[inline]
     pub fn apply_pin_mut<'a>(self, x: Pin<&'a mut T>) -> Pin<&'a mut U> {
         unsafe { x.map_unchecked_mut(|x| self.apply_mut(x)) }
