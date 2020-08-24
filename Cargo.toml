@@ -1,6 +1,6 @@
 [package]
 name = "field-offset"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Diggory Blake <diggsey@googlemail.com>"]
 description = "Safe pointer-to-member implementation"
 repository = "https://github.com/Diggsey/rust-field-offset"
