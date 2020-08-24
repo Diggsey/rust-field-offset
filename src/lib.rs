@@ -1,3 +1,4 @@
+#![no_std]
 #![cfg_attr(fieldoffset_assert_in_const_fn, feature(const_panic))]
 #![cfg_attr(fieldoffset_assert_in_const_fn, feature(const_fn))]
 // Explicit lifetimes are clearer when we are working with raw pointers,
@@ -5,11 +6,14 @@
 // which are too lax.
 #![allow(clippy::needless_lifetimes)]
 
-use std::fmt;
-use std::marker::PhantomData;
-use std::mem;
-use std::ops::Add;
-use std::pin::Pin;
+#[cfg(all(test, fieldoffset_has_alloc))]
+extern crate alloc;
+
+use core::fmt;
+use core::marker::PhantomData;
+use core::mem;
+use core::ops::Add;
+use core::pin::Pin;
 
 #[doc(hidden)]
 pub extern crate memoffset as __memoffset; // `pub` for macro availability
@@ -490,9 +494,11 @@ mod tests {
         );
     }
 
+    #[cfg(fieldoffset_has_alloc)]
     #[test]
     fn test_pin() {
-        use std::pin::Pin;
+        use alloc::boxed::Box;
+        use core::pin::Pin;
 
         // Get a pointer to `b` within `Foo`
         let foo_b = offset_of!(Foo => b);

@@ -8,6 +8,7 @@ fn main() {
     // Check for a minimum version
     if version().unwrap() >= Version::parse("1.36.0").unwrap() {
         println!("cargo:rustc-cfg=fieldoffset_maybe_uninit");
+        println!("cargo:rustc-cfg=fieldoffset_has_alloc");
     }
 
     if version_meta().unwrap().channel == Channel::Nightly {
