@@ -6,7 +6,7 @@
 // which are too lax.
 #![allow(clippy::needless_lifetimes)]
 
-#[cfg(test)]
+#[cfg(all(test, fieldoffset_has_alloc))]
 extern crate alloc;
 
 use core::fmt;
@@ -494,6 +494,7 @@ mod tests {
         );
     }
 
+    #[cfg(fieldoffset_has_alloc)]
     #[test]
     fn test_pin() {
         use alloc::boxed::Box;
