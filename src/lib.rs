@@ -61,12 +61,12 @@ pub struct FieldOffset<T, U, PinFlag = NotPinned>(
 struct PhantomContra<T>(fn(T));
 
 /// Type that can be used in the `PinFlag` parameter of `FieldOffset` to specify that
-/// This projection is valid on Pin types.
+/// this projection is valid on Pin types.
 /// See documentation of `FieldOffset::new_from_offset_pinned`
 pub enum AllowPin {}
 
 /// Type that can be used in the `PinFlag` parameter of `FieldOffset` to specify that
-/// This projection is not valid on Pin types.
+/// this projection is not valid on Pin types.
 pub enum NotPinned {}
 
 impl<T, U> FieldOffset<T, U, NotPinned> {
