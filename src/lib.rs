@@ -1,6 +1,4 @@
 #![no_std]
-#![cfg_attr(fieldoffset_assert_in_const_fn, feature(const_if_match))]
-#![cfg_attr(fieldoffset_assert_in_const_fn, feature(const_fn))]
 #![cfg_attr(fieldoffset_assert_in_const_fn, feature(const_panic))]
 // Explicit lifetimes are clearer when we are working with raw pointers,
 // as the compiler will not warn us if we specify lifetime constraints
