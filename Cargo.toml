@@ -6,6 +6,7 @@ description = "Safe pointer-to-member implementation"
 repository = "https://github.com/Diggsey/rust-field-offset"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
+include = ["README.md", "LICENSE-*", "Cargo.toml", "build.rs", "src/"]
 
 [dependencies]
 memoffset = "0.6.0"
