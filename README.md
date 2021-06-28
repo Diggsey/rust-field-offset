@@ -31,3 +31,4 @@ The macro also supports accessing nested fields:
 ```rust
 let bar_foo_y = offset_of!(Bar => foo: Foo => y);
 ```
+
