@@ -55,8 +55,8 @@ pub struct FieldOffset<T, U, PinFlag = NotPinned>(
     PhantomData<(PhantomContra<T>, U, PinFlag)>,
 );
 
-/// `fn` cannot appear dirrectly in a type that need to be const.
-/// Workaround that with an indiretion
+/// `fn` cannot appear directly in a type that need to be const.
+/// Workaround that with an indirection
 struct PhantomContra<T>(fn(T));
 
 /// Type that can be used in the `PinFlag` parameter of `FieldOffset` to specify that
@@ -329,7 +329,7 @@ impl<T, U, Flag> Clone for FieldOffset<T, U, Flag> {
 
 /// This macro allows safe construction of a FieldOffset,
 /// by generating a known to be valid lambda to pass to the
-/// constructor. It takes a type and the identifier of a field
+/// constructor. It takes a type, and the identifier of a field
 /// within that type as input.
 ///
 /// Examples:
@@ -407,7 +407,7 @@ mod tests {
         // Apply the pointer to get at `b` and read it
         {
             let y = foo_b.apply(&x);
-            assert!(*y == 2.0);
+            assert_eq!(*y, 2.0);
         }
 
         // Apply the pointer to get at `b` and mutate it
@@ -415,7 +415,7 @@ mod tests {
             let y = foo_b.apply_mut(&mut x);
             *y = 42.0;
         }
-        assert!(x.b == 42.0);
+        assert_eq!(x.b, 42.0);
     }
 
     #[test]
@@ -429,7 +429,7 @@ mod tests {
         // Apply the pointer to get at `b` and read it
         {
             let y = tuple_1.apply(&x);
-            assert!(*y == 42.0);
+            assert_eq!(*y, 42.0);
         }
 
         // Apply the pointer to get at `b` and mutate it
@@ -437,7 +437,7 @@ mod tests {
             let y = tuple_1.apply_mut(&mut x);
             *y = 5.0;
         }
-        assert!(x.1 == 5.0);
+        assert_eq!(x.1, 5.0);
     }
 
     #[test]
@@ -460,7 +460,7 @@ mod tests {
             let y = bar_y_b.apply_mut(&mut x);
             *y = 42.0;
         }
-        assert!(x.y.b == 42.0);
+        assert_eq!(x.y.b, 42.0);
     }
 
     struct Parameterized<T, U> {
@@ -508,7 +508,7 @@ mod tests {
             c: true,
         });
         let pb: Pin<&f64> = foo_b_pin.apply_pin(foo.as_ref());
-        assert!(*pb == 22.0);
+        assert_eq!(*pb, 22.0);
 
         let mut x = Box::pin(Bar {
             x: 0,
@@ -523,6 +523,6 @@ mod tests {
 
         let bar_y_pin = unsafe { offset_of!(Bar => y).as_pinned_projection() };
         *(bar_y_pin + foo_b_pin).apply_pin_mut(x.as_mut()) = 12.;
-        assert!(x.y.b == 12.0);
+        assert_eq!(x.y.b, 12.0);
     }
 }
